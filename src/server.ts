@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
-import { createDebugger } from "../src/utils/debugConfig";
-import { App } from "../src/app";
+import { createDebugger } from "./utils/debugConfig";
+import { App } from "./app";
 
 // CONFIGURATION
 dotenv.config();
@@ -17,3 +17,5 @@ const serverDebugger = createDebugger('server');
 app.listen(PORT, () => {
     serverDebugger(`Listening on port ${PORT}`);
 });
+
+export default app
