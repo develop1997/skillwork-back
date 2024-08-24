@@ -39,6 +39,7 @@ const signInUser = async (email: string, password: string) => {
 };
 
 // sign in API user with email and password
+log("Trying to sign in API user...(email: %s)", process.env.FB_API_USER_EMAIL ?? '')
 signInUser(process.env.FB_API_USER_EMAIL ?? '', process.env.FB_API_USER_PASSWORD ?? '');
 
 export { db, auth };
