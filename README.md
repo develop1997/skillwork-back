@@ -10,7 +10,13 @@ backend for [skillwork](https://github.com/develop1997/skillwork), this project 
     pnpm install
     ```
 
-2. Run the server
+
+2. Environment variables
+
+    - copy `.env.example` to `.env`
+    - fill in your environment variables
+
+3. Run the server
 
     ```bash
     pnpm start

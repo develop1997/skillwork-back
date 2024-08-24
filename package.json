@@ -6,6 +6,7 @@
   "scripts": {
     "start": "ts-node src/server.ts",
     "dev": "nodemon src/server.ts",
+    "prod": "node dist/server.js",
     "build": "tsc",
     "lint": "eslint . --fix",
     "test": "jest --config jest.config.js"
