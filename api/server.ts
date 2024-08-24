@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
-import { createDebugger } from "./utils/debugConfig";
-import { App } from "./app";
+import { createDebugger } from "../src/utils/debugConfig";
+import { App } from "../src/app";
 
 // CONFIGURATION
 dotenv.config();
