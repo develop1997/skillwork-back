@@ -7,7 +7,8 @@ export class Cache {
         [key: string]: {
             data: any,
             savedAt: Date,
-            lifetime: number
+            lifetime: number,
+            infinite: boolean
         }
     } = {};
 
@@ -28,11 +29,20 @@ export class Cache {
         return data.data;
     }
 
+    public static delete(key: string): void {
+        delete this.instance[key];
+    }
+
+    public static makeInfinite(key: string): void {
+        this.instance[key].infinite = true;
+    }
+
     public static set(key: string, value: any, lifetime?: number): void {
         this.instance[key] = {
             data: value,
             savedAt: new Date(),
-            lifetime: lifetime ?? 5 * 60 * 1000 /* 5 minutes of lifetime by default */
+            lifetime: lifetime ?? 5 * 60 * 1000 /* 5 minutes of lifetime by default */,
+            infinite: false
         };
     }
 }

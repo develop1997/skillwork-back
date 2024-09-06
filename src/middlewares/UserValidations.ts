@@ -10,10 +10,7 @@ export const UserBodyValidations = (
 	next: NextFunction
 ) => {
 	const schema = Joi.object({
-		name: Joi.string().optional(),
-		last_name: Joi.string().optional(),
 		email: Joi.string().required(),
-		phone: Joi.string().optional(),
 		password: Joi.string().required(),
 		role: Joi.number().required(),
 	});

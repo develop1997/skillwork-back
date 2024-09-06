@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { config } from "dotenv";
 import { createDebugger } from "../utils/debugConfig";
+import { config } from "dotenv";
 
 config();
 const log = createDebugger('firebaseDB');

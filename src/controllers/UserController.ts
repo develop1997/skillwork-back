@@ -11,19 +11,62 @@ export class CategoriaController extends UserDAO {
 	}
 
 	public routes(): Router {
-		// // add
+		// add
 		this.router.post(
 			"/",
 			UserBodyValidations,
 			async (req: Request, res: Response) => {
-					const user = User.fromJson(req.body);
-					const data = await UserDAO.add(user);
-					if (data[0]) {
-						return res.status(201).send("User created successfully");
-					}
-					return res.status(400).send("User not created");
+				const user = User.fromJson(req.body);
+				const data = await UserDAO.add(user);
+				if (data[0]) {
+					return res.status(201).send("User created successfully: " + data[1]);
+				}
+				return res.status(400).send(data[1]);
 			}
 		);
+
+		// sign in
+		this.router.post("/signin", async (req: Request, res: Response) => {
+			const { email, password } = req.body;
+
+			const user = await UserDAO.signIn(email, password);
+
+			if (user[0]) {
+				return res.status(200).send(user[1]);
+			}
+
+			return res.status(400).send(user[1]);
+		});
+
+		// forgot password (send)
+		this.router.post("/forgot_password", async (req: Request, res: Response) => {
+			const { email } = req.body;
+			const data = await UserDAO.forgorPassword(email);
+			if (data[0]) {
+				return res.status(200).send(data[1]);
+			}
+			return res.status(400).send(data[1]);
+		});
+
+		// forgot password (verify code)
+		this.router.post("/forgot_password/verify_code", async (req: Request, res: Response) => {
+			const { email, code } = req.body;
+			const data = await UserDAO.verifyForgotPasswordCode(email, code);
+			if (data[0]) {
+				return res.status(200).send(data[1]);
+			}
+			return res.status(400).send(data[1]);
+		})
+
+		// forgot password (reset)
+		this.router.post("/forgot_password/reset", async (req: Request, res: Response) => {
+			const { email, code, password } = req.body;
+			const data = await UserDAO.resetPassword(email, code, password);
+			if (data[0]) {
+				return res.status(200).send(data[1]);
+			}
+			return res.status(400).send(data[1]);
+		})
 
 		return this.router;
 	}
