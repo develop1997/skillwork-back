@@ -61,6 +61,7 @@ export class CategoriaController extends UserDAO {
 		// forgot password (reset)
 		this.router.post("/forgot_password/reset", async (req: Request, res: Response) => {
 			const { email, code, password } = req.body;
+			console.log("email: ", email, "code: ", code, "password: ", password);
 			const data = await UserDAO.resetPassword(email, code, password);
 			if (data[0]) {
 				return res.status(200).send(data[1]);

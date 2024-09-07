@@ -27,7 +27,6 @@ export class UserDAO {
 			if (querySnapshot.empty) {
 				throw new Error("User not found");
 			}
-			console.log(querySnapshot.docs[0].data());
 			const user = User.fromJson(querySnapshot.docs[0].data());
 
 			//compare password
