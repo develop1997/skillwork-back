@@ -48,7 +48,10 @@ export class UserDAO {
 					expiresIn: process.env.JWT_EXPIRATION_TIME,
 				}
 			);
-			return [true, token];
+			return [true, {
+				token: token,
+				role: user.role
+			}];
 		} catch (error) {
 			const msg = "Error in sign in: " + error;
 			logError(msg);
