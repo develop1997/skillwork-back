@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import Joi from "joi";
 import { createDebugger } from "../utils/debugConfig";
 
-const middlewareDebugger= createDebugger('userValidations');
+const middlewareDebugger= createDebugger('UserValidations');
 
-export const UserBodyValidations = (
+export const CreateUserBodyValidations = (
 	req: Request,
 	res: Response,
 	next: NextFunction

@@ -1,23 +1,37 @@
 import { config } from "dotenv";
 import { User } from "../entities/User";
-import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
+import {
+	addDoc,
+	collection,
+	getDocs,
+	query,
+	updateDoc,
+	where,
+} from "firebase/firestore";
 import { db } from "../service/firebaseDB";
 import { createDebugger } from "../utils/debugConfig";
-import { ComparePassword, EncriptPassword } from "../utils/cryptography/encrypt";
+import {
+	ComparePassword,
+	EncriptPassword,
+} from "../utils/cryptography/encrypt";
 import { sign } from "jsonwebtoken";
 import { fromDefault, sendMail } from "../utils/Email/SendEmail";
 import { generateCode } from "../utils/Email/VerificationCode";
 import { Cache } from "../utils/cache";
+import { DaoResponse, ErrorControl } from "../constants/ErrorControl";
+import { HttpStatusCode } from "axios";
 
 config();
 
 // logger config
-const log = createDebugger('UserDAO');
-const logError = log.extend('error');
+const log = createDebugger("UserDAO");
+const logError = log.extend("error");
 
 export class UserDAO {
-
-	public static async signIn(email: string, password: string) {
+	protected static async signIn(
+		email: string,
+		password: string
+	): Promise<DaoResponse> {
 		try {
 			//get user by email
 			const usersRef = collection(db, User.COLLECTION);
@@ -25,7 +39,11 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (querySnapshot.empty) {
-				throw new Error("User not found");
+				return [
+					ErrorControl.PERSONALIZED,
+					"User not found",
+					HttpStatusCode.NotFound,
+				];
 			}
 			const user = User.fromJson(querySnapshot.docs[0].data());
 
@@ -35,9 +53,11 @@ export class UserDAO {
 				user.password
 			);
 			if (!passwordMatch) {
-				throw new Error(
-					"Password incorrect"
-				);
+				return [
+					ErrorControl.PERSONALIZED,
+					"Password incorrect",
+					HttpStatusCode.BadRequest,
+				];
 			}
 
 			// create token and return it
@@ -48,27 +68,34 @@ export class UserDAO {
 					expiresIn: process.env.JWT_EXPIRATION_TIME,
 				}
 			);
-			return [true, {
-				token: token,
-				role: user.role
-			}];
+			return [
+				ErrorControl.SUCCESS,
+				{
+					token: token,
+					role: user.role,
+				},
+				HttpStatusCode.Ok,
+			];
 		} catch (error) {
-			const msg = "Error in sign in: " + error;
-			logError(msg);
-			return [false, msg];
+			const msg = "Error in sign in";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
 		}
 	}
 
-	protected static async add(user: User) {
+	protected static async add(user: User): Promise<DaoResponse> {
 		try {
 			// verify if email already exists
-
 			const usersRef = collection(db, User.COLLECTION);
 			const q = query(usersRef, where("email", "==", user.email));
 			const querySnapshot = await getDocs(q);
 
 			if (!querySnapshot.empty) {
-				throw new Error("Email already exists");
+				return [ErrorControl.PERSONALIZED, "Email already exists", HttpStatusCode.Conflict];
 			}
 
 			// encrypt password
@@ -76,19 +103,24 @@ export class UserDAO {
 			// convert user to json
 			const userTosave = user.toSaveJson();
 			// save user
-			const docRef = await addDoc(collection(db, User.COLLECTION),
-				userTosave);
+			const docRef = await addDoc(
+				collection(db, User.COLLECTION),
+				userTosave
+			);
 			log("Document written with ID: %s", docRef.id);
-			return [true, docRef.id];
-		} catch (e) {
-			const msg = "Error adding document: " + e;
-			logError(msg);
-			return [false, msg];
+			return [ErrorControl.SUCCESS, docRef.id, HttpStatusCode.Created];
+		} catch (error) {
+			const msg = "Error adding document";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
 		}
 	}
 
-	protected static async forgorPassword(email: string) {
-
+	protected static async forgorPassword(email: string): Promise<DaoResponse> {
 		try {
 			// verify if email already exists
 			const usersRef = collection(db, User.COLLECTION);
@@ -96,7 +128,7 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (querySnapshot.empty) {
-				throw new Error("Email not found");
+				return [ErrorControl.PERSONALIZED, "Email not found", HttpStatusCode.NotFound];
 			}
 
 			const code = generateCode(6);
@@ -105,8 +137,8 @@ export class UserDAO {
 				from: fromDefault,
 				to: email,
 				subject: "Forgot password",
-				text: "Your verification code: " + code
-			})
+				text: "Your verification code: " + code,
+			});
 
 			if (!info[0]) {
 				throw new Error("Email not sent, error: " + info[1]);
@@ -114,51 +146,66 @@ export class UserDAO {
 			const key = "forgot_password_code_" + email;
 			Cache.set(key, code);
 
-			return [true, "Email sent"];
-		} catch (e) {
-			const msg = "Error sending email: " + e;
-			logError(msg);
-			return [false, msg];
+			return [ErrorControl.SUCCESS, "Email sent", HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error sending email";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
 		}
 	}
 
-	protected static async verifyForgotPasswordCode(email: string, code: string) {
+	protected static async verifyForgotPasswordCode(
+		email: string,
+		code: string
+	): Promise<DaoResponse> {
 		try {
 			const key = "forgot_password_code_" + email;
 			const cachedCode = Cache.get(key);
 
 			if (!cachedCode) {
-				throw new Error("Code not found");
+				return [ErrorControl.PERSONALIZED, "Code not found", HttpStatusCode.NotFound];
 			}
 
 			if (cachedCode !== code) {
-				throw new Error("Code incorrect");
+				return [ErrorControl.PERSONALIZED, "Code incorrect", HttpStatusCode.BadRequest];
 			}
 
 			// make sure code is not expired
 			Cache.makeInfinite(key);
 
-			return [true, "Code correct"];
+			return [ErrorControl.SUCCESS, "Code correct", HttpStatusCode.Ok];
 		} catch (error) {
-			const msg = "Error verifying code: " + error;
-			logError(msg);
-			return [false, msg];
+			const msg = "Error verifying code";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
 		}
 	}
 
-	protected static async resetPassword(email: string, code: string, password: string) {
+	protected static async resetPassword(
+		email: string,
+		code: string,
+		password: string
+	): Promise<DaoResponse> {
 		try {
 			const key = "forgot_password_code_" + email;
 			const cachedCode = Cache.get(key);
 
 			if (!cachedCode) {
-				throw new Error("Code not found");
+				return [ErrorControl.PERSONALIZED, "Code not found", HttpStatusCode.NotFound];
 			}
 
 			if (cachedCode !== code) {
-				throw new Error("Code incorrect");
+				return [ErrorControl.PERSONALIZED, "Code incorrect", HttpStatusCode.BadRequest];
 			}
-			// remove code 
+			// remove code
 			Cache.delete(key);
 
 			// encrypt password
@@ -169,19 +216,24 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (querySnapshot.empty) {
-				throw new Error("Email not found");
+				return [ErrorControl.PERSONALIZED, "Email not found", HttpStatusCode.NotFound];
 			}
 
 			const userRef = querySnapshot.docs[0].ref;
 
 			await updateDoc(userRef, {
-				password: hashedPassword
+				password: hashedPassword,
 			});
-			return [true, "Password updated"];
+
+			return [ErrorControl.SUCCESS, "Password updated", HttpStatusCode.Ok];
 		} catch (error) {
-			const msg = "Error updating password: " + error;
-			logError(msg);
-			return [false, msg];
+			const msg = "Error updating password";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
 		}
 	}
 

@@ -63,7 +63,6 @@ export class User {
 
 	/* json example
 	{
-		"id_user": "1sorefnpifendw",
 		"name": "john",
 		"last_name": "doe",
 		"email": "9zTqQ@example.com",

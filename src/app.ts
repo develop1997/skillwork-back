@@ -1,8 +1,9 @@
 import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import morgan from "morgan";
-import { CategoriaController } from "./controllers/UserController";
+import { UserController } from "./controllers/UserController";
 import compression from "compression";
+import { JobController } from "./controllers/JobController";
 
 export class App {
 	private app: Application;
@@ -43,7 +44,8 @@ export class App {
 
 	private controllerRoutes() {
 		// Controllers ROUTES
-		this.app.use(this.prefix + "/user", new CategoriaController().routes());
+		this.app.use(this.prefix + "/user", new UserController().routes());
+		this.app.use(this.prefix + "/job", new JobController().routes());
 
 	}
 
