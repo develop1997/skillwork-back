@@ -4,6 +4,8 @@ import morgan from "morgan";
 import { UserController } from "./controllers/UserController";
 import compression from "compression";
 import { JobController } from "./controllers/JobController";
+import { CategoryController } from "./controllers/CategoryController";
+import { ServiceController } from "./controllers/ServiceController";
 
 export class App {
 	private app: Application;
@@ -46,6 +48,8 @@ export class App {
 		// Controllers ROUTES
 		this.app.use(this.prefix + "/user", new UserController().routes());
 		this.app.use(this.prefix + "/job", new JobController().routes());
+		this.app.use(this.prefix + "/category", new CategoryController().routes());
+		this.app.use(this.prefix + "/service", new ServiceController().routes());
 
 	}
 

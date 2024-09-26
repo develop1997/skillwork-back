@@ -1,42 +1,59 @@
 import { NextFunction, Request, Response } from "express";
-import { verify } from 'jsonwebtoken';
-import dotenv from "dotenv";
+import { verify } from "jsonwebtoken";
+import { config } from "dotenv";
 import { RolesConstants } from "../constants/Roles";
+import { HttpStatusCode } from "axios";
+import { createDebugger } from "../utils/debugConfig";
 
-dotenv.config();
+config();
 
+const middlewareDebugger= createDebugger('jwt');
 /**
  * Verify token
  * @param req
- * @param res 
- * @param next 
+ * @param res
+ * @param next
  */
-export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader?.split(' ')[1];
+export const verifyToken = (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const authHeader = req.headers["authorization"];
+	const token = authHeader?.split(" ")[1];
 
-    if (token == null) {
-        return res.sendStatus(401); 
-    }
+	if (token == null) {
+		middlewareDebugger("Access denied. No token provided.");
+		return res.status(HttpStatusCode.Unauthorized).send("Access denied. No token provided.");
+	}
 
-    verify(token, process.env.JWT_SECRET as string, (err: any, payload: any) => {
-        if (err) {
-            return res.sendStatus(403);
-        }
-        req.body.user = payload;
-        next(); 
-    });
+	verify(
+		token,
+		process.env.JWT_SECRET as string,
+		(err: any, payload: any) => {
+			if (err) {
+				middlewareDebugger("Invalid token.");
+				return res.status(HttpStatusCode.Forbidden).send("Invalid token.");
+			}
+			req.body.user = payload;
+			next();
+		}
+	);
 };
 
 /**
  * validate Admin
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  * @param next
  */
-export const validateClient = (req: Request, res: Response, next: NextFunction) => {
-    if (req.body.user.role !== RolesConstants.CLIENTE) {
-        return res.sendStatus(403);
-    }
-    next();
+export const validateClient = (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	if (req.body.user.role !== RolesConstants.CLIENTE) {
+		return res.status(HttpStatusCode.Unauthorized).send("Access denied.");
+	}
+	next();
 };

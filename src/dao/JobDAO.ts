@@ -1,4 +1,3 @@
-import { config } from "dotenv";
 import { createDebugger } from "../utils/debugConfig";
 import { Job } from "../entities/Job";
 import {
@@ -16,8 +15,6 @@ import { db } from "../service/firebaseDB";
 import { DaoResponse, ErrorControl } from "../constants/ErrorControl";
 import { HttpStatusCode } from "axios";
 import { User } from "../entities/User";
-
-config();
 
 // logger config
 const log = createDebugger("JobDAO");
