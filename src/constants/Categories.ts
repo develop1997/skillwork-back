@@ -7,7 +7,6 @@ export const DefinedCategories: Record<string, string[]> = {
 		"Filosofía",
 		"Psicología",
 		"Geografía",
-		"Otros",
 	],
 	Belleza: ["Maquillaje", "Peluquería", "Estilista", "Manicurista"],
 	Turismo: ["Guía", "Traductor", "Transportador", "Hospedador"],

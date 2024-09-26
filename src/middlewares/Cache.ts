@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Cache } from "../utils/cache";
 import { createDebugger } from "../utils/debugConfig";
+import { HttpStatusCode } from "axios";
 
 const middlewareDebugger= createDebugger('cache');
 
@@ -9,7 +10,7 @@ export const CheckCache = async (req: Request, res: Response, next: any) => {
     const cachedData = Cache.get(cacheKey);
     if (cachedData) {
         middlewareDebugger(`Cache found for ${cacheKey}`);
-        return res.status(200).send(cachedData);
+        return res.status(HttpStatusCode.Ok).send(cachedData);
     } else {
         req.body.cacheKey = cacheKey;
         next();
