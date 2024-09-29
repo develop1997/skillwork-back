@@ -3,6 +3,8 @@ import { User } from "../entities/User";
 import {
 	addDoc,
 	collection,
+	doc,
+	getDoc,
 	getDocs,
 	query,
 	updateDoc,
@@ -45,7 +47,10 @@ export class UserDAO {
 					HttpStatusCode.NotFound,
 				];
 			}
-			const user = User.fromJson(querySnapshot.docs[0].data());
+			const user = User.fromJson({
+				...querySnapshot.docs[0].data(),
+				id_user: querySnapshot.docs[0].id,
+			});
 
 			//compare password
 			const passwordMatch = await ComparePassword(
@@ -95,7 +100,11 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (!querySnapshot.empty) {
-				return [ErrorControl.PERSONALIZED, "Email already exists", HttpStatusCode.Conflict];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Email already exists",
+					HttpStatusCode.Conflict,
+				];
 			}
 
 			// encrypt password
@@ -128,7 +137,11 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (querySnapshot.empty) {
-				return [ErrorControl.PERSONALIZED, "Email not found", HttpStatusCode.NotFound];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Email not found",
+					HttpStatusCode.NotFound,
+				];
 			}
 
 			const code = generateCode(6);
@@ -167,11 +180,19 @@ export class UserDAO {
 			const cachedCode = Cache.get(key);
 
 			if (!cachedCode) {
-				return [ErrorControl.PERSONALIZED, "Code not found", HttpStatusCode.NotFound];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Code not found",
+					HttpStatusCode.NotFound,
+				];
 			}
 
 			if (cachedCode !== code) {
-				return [ErrorControl.PERSONALIZED, "Code incorrect", HttpStatusCode.BadRequest];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Code incorrect",
+					HttpStatusCode.BadRequest,
+				];
 			}
 
 			// make sure code is not expired
@@ -199,11 +220,19 @@ export class UserDAO {
 			const cachedCode = Cache.get(key);
 
 			if (!cachedCode) {
-				return [ErrorControl.PERSONALIZED, "Code not found", HttpStatusCode.NotFound];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Code not found",
+					HttpStatusCode.NotFound,
+				];
 			}
 
 			if (cachedCode !== code) {
-				return [ErrorControl.PERSONALIZED, "Code incorrect", HttpStatusCode.BadRequest];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Code incorrect",
+					HttpStatusCode.BadRequest,
+				];
 			}
 			// remove code
 			Cache.delete(key);
@@ -216,7 +245,11 @@ export class UserDAO {
 			const querySnapshot = await getDocs(q);
 
 			if (querySnapshot.empty) {
-				return [ErrorControl.PERSONALIZED, "Email not found", HttpStatusCode.NotFound];
+				return [
+					ErrorControl.PERSONALIZED,
+					"Email not found",
+					HttpStatusCode.NotFound,
+				];
 			}
 
 			const userRef = querySnapshot.docs[0].ref;
@@ -225,7 +258,11 @@ export class UserDAO {
 				password: hashedPassword,
 			});
 
-			return [ErrorControl.SUCCESS, "Password updated", HttpStatusCode.Ok];
+			return [
+				ErrorControl.SUCCESS,
+				"Password updated",
+				HttpStatusCode.Ok,
+			];
 		} catch (error) {
 			const msg = "Error updating password";
 			logError(msg + ": " + error);
@@ -237,11 +274,56 @@ export class UserDAO {
 		}
 	}
 
-	protected static async update(user: User, id_user: number) {
-		throw new Error("Method not implemented.");
+	protected static async getUserById(id_user: string): Promise<DaoResponse> {
+		try {
+			const docRef = doc(db, User.COLLECTION, id_user);
+			const docSnap = await getDoc(docRef);
+			if (!docSnap.exists()) {
+				return [
+					ErrorControl.PERSONALIZED,
+					"User not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+
+			const user = User.fromJson(docSnap.data());
+			// delete password
+			user.deletePassword();
+			return [ErrorControl.SUCCESS, user, HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error getting user";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
 	}
 
-	protected static async delete(id_user: number) {
-		throw new Error("Method not implemented.");
+	protected static async update(user: User, id_user: string): Promise<DaoResponse> {
+		try {
+			const docRef = doc(db, User.COLLECTION, id_user);
+			const docSnap = await getDoc(docRef);
+			if (!docSnap.exists()) {
+				return [
+					ErrorControl.PERSONALIZED,
+					"User not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+
+			await updateDoc(docRef, user.toUpdateJson(docSnap.data()));
+
+			return [ErrorControl.SUCCESS, "User updated", HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error updating user";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
 	}
 }

@@ -5,70 +5,101 @@ export class User {
 
 	id_user?: string;
 	name?: string;
-	last_name?: string;
 	email?: string;
+	description?: string;
+	document_type?: string;
+	document?: string;
 	phone?: string;
 	role?: number;
 	password?: string;
+	image?: string;
+	categories?: string[];
+	services?: string[];
 	created_at?: Date;
 
 	constructor(
 		id_user?: string,
 		name?: string,
-		last_name?: string,
 		email?: string,
+		description?: string,
+		document_type?: string,
+		document?: string,
 		phone?: string,
 		password?: string,
+		role?: number,
+		image?: string,
+		categories?: string[],
+		services?: string[],
 		created_at?: Date,
-		role?: number
 	) {
 		this.id_user = id_user;
 		this.name = name;
-		this.last_name = last_name;
 		this.email = email;
+		this.description = description;
+		this.document_type = document_type;
+		this.document = document;
 		this.phone = phone;
 		this.password = password;
-		this.created_at = created_at;
+		this.image = image;
 		this.role = role;
+		this.categories = categories;
+		this.services = services;
+		this.created_at = created_at;
 	}
 
 	public static fromJson(json: any): User {
 		return new User(
 			json.id_user,
 			json.name,
-			json.last_name,
 			json.email,
+			json.description,
+			json.document_type,
+			json.document,
 			json.phone,
 			json.password,
+			json.role,
+			json.image,
+			json.categories,
+			json.services,
 			json.created_at,
-			json.role
 		);
 	}
 
 	public toSaveJson(): any {
 		return {
 			name: this.name ?? "Guest",
-			last_name: this.last_name ?? "Guest",
 			email: this.email,
-			phone: this.phone ?? "x",
+			description: this.description ?? "",
+			document_type: this.document_type ?? "",
+			document: this.document ?? "",
+			phone: this.phone ?? "",
 			password: this.password,
 			created_at: getDateTime(),
 			role: this.role ?? 1,
+			categories: this.categories ?? [],
+			services: this.services ?? [],
 		};
+	}
+
+	public toUpdateJson(original: any): any {
+		return {
+			name: this.name ?? original.name ?? "",
+			email: this.email ?? original.email ?? "",
+			description: this.description ?? original.description ?? "",
+			document_type: this.document_type ?? original.document_type ?? "",
+			document: this.document ?? original.document ?? "",
+			phone: this.phone ?? original.phone ?? "",
+			image: this.image ?? original.image ?? "",
+			categories: this.categories ?? original.categories ?? [],
+			services: this.services ?? original.services ?? [],
+		};
+	}
+
+	public deletePassword(): void {
+		this.password = undefined;
 	}
 
 	public static fromJsonArray(jsonArray: any[]): User[] {
 		return jsonArray.map((json: any) => User.fromJson(json));
 	}
-
-	/* json example
-	{
-		"name": "john",
-		"last_name": "doe",
-		"email": "9zTqQ@example.com",
-		"phone": "1234567890",
-		"password": "password123",
-		"role":1
-	}
-	*/
 }

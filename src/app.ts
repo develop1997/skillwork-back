@@ -24,7 +24,7 @@ export class App {
 	private midlewares() {
 		// MIDDLEWARE
 		this.app.use(cors());
-		this.app.use(express.json());
+		this.app.use(express.json({ limit: '50mb' }));
 		morgan.token("date", () => {
 			const date = new Date();
 			return `[${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()} ${date.getUTCHours()}:${date.getUTCMinutes()}:${date.getUTCSeconds()}.${date.getUTCMilliseconds()}]`;
