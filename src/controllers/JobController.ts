@@ -15,9 +15,9 @@ export class JobController extends JobDAO {
 		// add
 		this.router.post(
 			"/",
+			CreateJobBodyValidations,
 			verifyToken,
 			validateClient,
-			CreateJobBodyValidations,
 			async (req: Request, res: Response) => {
 				const job = Job.fromJson(req.body);
 				const data = await JobDAO.add(job, req.body.user.id);
@@ -49,9 +49,9 @@ export class JobController extends JobDAO {
 		// update
 		this.router.put(
 			"/:id_job",
+			CreateJobBodyValidations,
 			verifyToken,
 			validateClient,
-			CreateJobBodyValidations,
 			async (req: Request, res: Response) => {
 				const id_job = req.params.id_job;
 				const user_id = req.body.user.id;
