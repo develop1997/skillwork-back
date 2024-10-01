@@ -52,6 +52,7 @@ export class JobController extends JobDAO {
 		this.router.get(
 			"/",
 			verifyToken,
+			validateClient,
 			async (req: Request, res: Response) => {
 				const { page = "1", limit = "10" } = req.query;
 
@@ -59,6 +60,18 @@ export class JobController extends JobDAO {
 					parseInt(page as string),
 					parseInt(limit as string)
 				);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
+
+		// get applicants of job
+		this.router.get(
+			"/applicants/:id_job",
+			verifyToken,
+			validateClient,
+			async (req: Request, res: Response) => {
+				const id_job = req.params.id_job;
+				const data = await JobDAO.getApplicants(id_job);
 				return res.status(data[2]).send(data[1]);
 			}
 		);

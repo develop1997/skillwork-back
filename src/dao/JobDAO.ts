@@ -15,6 +15,8 @@ import {
 	orderBy,
 	DocumentSnapshot,
 	arrayUnion,
+	getDoc,
+	DocumentReference,
 } from "firebase/firestore";
 import { db } from "../service/firebaseDB";
 import { DaoResponse, ErrorControl } from "../constants/ErrorControl";
@@ -272,4 +274,40 @@ export class JobDAO {
 			];
 		}
 	}
+
+	protected static async getApplicants(id_job: string): Promise<DaoResponse> {
+		try {
+			const jobdocRef = doc(db, Job.COLLECTION, id_job);
+			const querySnapshot = await getDoc(jobdocRef);
+	
+			if (!querySnapshot.exists()) {
+				return [
+					ErrorControl.ERROR,
+					"Job not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+	
+			const applicants = querySnapshot.data().applicants;
+			const usersPromises = applicants.map(async (doc: DocumentReference) => {
+				const docSnap = await getDoc(doc);
+				const user = User.fromJson(docSnap.data());
+				// delete password
+				user.deletePassword();
+				return user;
+			});
+	
+			const users = await Promise.all(usersPromises);
+			return [ErrorControl.SUCCESS, users, HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error deleting document";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
+	
 }
