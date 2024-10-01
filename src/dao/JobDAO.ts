@@ -6,10 +6,15 @@ import {
 	collection,
 	deleteDoc,
 	doc,
+	limit,
+	startAfter,
 	getDocs,
 	query,
 	updateDoc,
 	where,
+	orderBy,
+	DocumentSnapshot,
+	arrayUnion,
 } from "firebase/firestore";
 import { db } from "../service/firebaseDB";
 import { DaoResponse, ErrorControl } from "../constants/ErrorControl";
@@ -43,17 +48,54 @@ export class JobDAO {
 		}
 	}
 
-	protected static async getAll(): Promise<DaoResponse> {
+	protected static async getAll(
+		page: number,
+		limitP: number
+	): Promise<DaoResponse> {
 		try {
 			const jobsRef = collection(db, Job.COLLECTION);
-			const querySnapshot = await getDocs(jobsRef);
+
+			const jobsQuery = query(
+				jobsRef,
+				orderBy("created_at"),
+				limit(limitP)
+			);
+
+			const querySnapshot = await getDocs(jobsQuery);
+
 			if (querySnapshot.empty) {
 				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
 			}
+
 			const jobs = querySnapshot.docs.map((doc) =>
 				Job.fromJson({ ...doc.data(), id_job: doc.id })
 			);
-			return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+
+			if (page === 1) {
+				return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+			}
+
+			const lastVisible: DocumentSnapshot =
+				querySnapshot.docs[querySnapshot.docs.length - 1];
+
+			const nextQuery = query(
+				jobsRef,
+				orderBy("created_at"),
+				startAfter(lastVisible),
+				limit(limitP)
+			);
+
+			const nextQuerySnapshot = await getDocs(nextQuery);
+
+			if (nextQuerySnapshot.empty) {
+				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
+			}
+
+			const nextJobs = nextQuerySnapshot.docs.map((doc) =>
+				Job.fromJson({ ...doc.data(), id_job: doc.id })
+			);
+
+			return [ErrorControl.SUCCESS, nextJobs, HttpStatusCode.Ok];
 		} catch (error) {
 			const msg = "Error getting documents";
 			logError(msg + ": " + error);
@@ -103,10 +145,11 @@ export class JobDAO {
 	): Promise<DaoResponse> {
 		try {
 			const jobsRef = collection(db, Job.COLLECTION);
+			const userdocRef = doc(db, User.COLLECTION, id_user);
 			const q = query(
 				jobsRef,
 				and(
-					where("id_creator", "==", id_user),
+					where("id_creator", "==", userdocRef),
 					where("__name__", "==", id_job)
 				)
 			);
@@ -131,10 +174,11 @@ export class JobDAO {
 	): Promise<DaoResponse> {
 		try {
 			const jobsRef = collection(db, Job.COLLECTION);
+			const userdocRef = doc(db, User.COLLECTION, id_user);
 			const q = query(
 				jobsRef,
 				and(
-					where("id_creator", "==", id_user),
+					where("id_creator", "==", userdocRef),
 					where("__name__", "==", id_job)
 				)
 			);
@@ -153,7 +197,79 @@ export class JobDAO {
 		}
 	}
 
-	protected static async aplyJob(job: any): Promise<DaoResponse> {
-		throw new Error("Method not implemented.");
+	protected static async getUserJobs(id_user: string): Promise<DaoResponse> {
+		try {
+			const jobsRef = collection(db, Job.COLLECTION);
+			const userdocRef = doc(db, User.COLLECTION, id_user);
+			const q = query(jobsRef, where("id_creator", "==", userdocRef));
+			const querySnapshot = await getDocs(q);
+			if (querySnapshot.empty) {
+				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
+			}
+			const jobs = querySnapshot.docs.map((doc) =>
+				Job.fromJson({ ...doc.data(), id_job: doc.id })
+			);
+			return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error deleting document";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
+
+	protected static async aplyJob(
+		id_job: string,
+		id_user: string
+	): Promise<DaoResponse> {
+		const userdocRef = doc(db, User.COLLECTION, id_user);
+		const jobdocRef = doc(db, Job.COLLECTION, id_job);
+		try {
+			await updateDoc(jobdocRef, { applicants: arrayUnion(userdocRef) });
+			return [
+				ErrorControl.SUCCESS,
+				"Job applied",
+				HttpStatusCode.Created,
+			];
+		} catch (error) {
+			const msg = "Error deleting document";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
+
+	protected static async getAppliedJobs(
+		id_user: string
+	): Promise<DaoResponse> {
+		try {
+			const userdocRef = doc(db, User.COLLECTION, id_user);
+			const q = query(
+				collection(db, Job.COLLECTION),
+				where("applicants", "array-contains", userdocRef)
+			);
+			const querySnapshot = await getDocs(q);
+			if (querySnapshot.empty) {
+				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
+			}
+			const jobs = querySnapshot.docs.map((doc) =>
+				Job.fromJson({ ...doc.data(), id_job: doc.id })
+			);
+			return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error deleting document";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
 	}
 }

@@ -10,6 +10,7 @@ import { verifyToken } from "../middlewares/jwt";
 import { CheckCache } from "../middlewares/Cache";
 import { uploadImage } from "../service/fireStorage";
 import multer from "multer";
+import { JobDAO } from "../dao/JobDAO";
 
 const upload = multer();
 export class UserController extends UserDAO {
@@ -41,7 +42,6 @@ export class UserController extends UserDAO {
 		this.router.get(
 			"/",
 			verifyToken,
-			CheckCache,
 			async (req: Request, res: Response) => {
 				const userId = req.body.user.id;
 				const data = await UserDAO.getUserById(userId);
@@ -51,7 +51,7 @@ export class UserController extends UserDAO {
 
 		// sign in
 		this.router.post("/signin", async (req: Request, res: Response) => {
-			const { email, password } = req.body;
+				const { email, password } = req.body;
 			const data = await UserDAO.signIn(email, password);
 			return res.status(data[2]).send(data[1]);
 		});

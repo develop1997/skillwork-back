@@ -25,12 +25,51 @@ export class JobController extends JobDAO {
 			}
 		);
 
+		// apply
+		this.router.post(
+			"/apply/:job_id",
+			verifyToken,
+			async (req: Request, res: Response) => {
+				const userId = req.body.user.id;
+				const jobId = req.params.job_id;
+				const data = await JobDAO.aplyJob(jobId, userId);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
+
+		// get applied jobs
+		this.router.get(
+			"/applied",
+			verifyToken,
+			async (req: Request, res: Response) => {
+				const userId = req.body.user.id;
+				const data = await JobDAO.getAppliedJobs(userId);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
+
 		// get all
 		this.router.get(
 			"/",
 			verifyToken,
 			async (req: Request, res: Response) => {
-				const data = await JobDAO.getAll();
+				const { page = "1", limit = "10" } = req.query;
+
+				const data = await JobDAO.getAll(
+					parseInt(page as string),
+					parseInt(limit as string)
+				);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
+
+		// get user jobs
+		this.router.get(
+			"/user",
+			verifyToken,
+			async (req: Request, res: Response) => {
+				const id_user = req.body.user.id;
+				const data = await JobDAO.getUserJobs(id_user);
 				return res.status(data[2]).send(data[1]);
 			}
 		);
