@@ -52,7 +52,6 @@ export class JobController extends JobDAO {
 		this.router.get(
 			"/",
 			verifyToken,
-			validateClient,
 			async (req: Request, res: Response) => {
 				const { page = "1", limit = "10" } = req.query;
 
