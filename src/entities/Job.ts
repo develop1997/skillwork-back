@@ -64,7 +64,7 @@ export class Job {
 			salary: this.salary,
 			created_at: getDateTime(),
 			expired_at: this.expired_at,
-			applicants: this.applicants,
+			applicants: this.applicants ?? [],
 		};
 	}
 
