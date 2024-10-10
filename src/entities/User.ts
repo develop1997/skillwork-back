@@ -16,6 +16,11 @@ export class User {
 	categories?: string[];
 	services?: string[];
 	created_at?: Date;
+	valorations?: {
+		id_user?: string;
+		rate?: number;
+		created_at?: Date;
+	}[];
 
 	constructor(
 		id_user?: string,
@@ -31,6 +36,11 @@ export class User {
 		categories?: string[],
 		services?: string[],
 		created_at?: Date,
+		valorations?: {
+			id_user?: string;
+			rate?: number;
+			created_at?: Date;
+		}[]
 	) {
 		this.id_user = id_user;
 		this.name = name;
@@ -45,6 +55,7 @@ export class User {
 		this.categories = categories;
 		this.services = services;
 		this.created_at = created_at;
+		this.valorations = valorations;
 	}
 
 	public static fromJson(json: any): User {
@@ -62,6 +73,7 @@ export class User {
 			json.categories,
 			json.services,
 			json.created_at,
+			json.valorations
 		);
 	}
 
@@ -78,6 +90,7 @@ export class User {
 			role: this.role ?? 1,
 			categories: this.categories ?? [],
 			services: this.services ?? [],
+			valorations: this.valorations ?? [],
 		};
 	}
 
@@ -92,6 +105,7 @@ export class User {
 			image: this.image ?? original.image ?? "",
 			categories: this.categories ?? original.categories ?? [],
 			services: this.services ?? original.services ?? [],
+			valorations: this.valorations ?? original.valorations ?? [],
 		};
 	}
 

@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { User } from "../entities/User";
 import {
 	addDoc,
+	arrayUnion,
 	collection,
 	doc,
 	getDoc,
@@ -22,6 +23,7 @@ import { generateCode } from "../utils/Email/VerificationCode";
 import { Cache } from "../utils/cache";
 import { DaoResponse, ErrorControl } from "../constants/ErrorControl";
 import { HttpStatusCode } from "axios";
+import { getDateTime } from "../utils/Time";
 
 config();
 
@@ -129,6 +131,36 @@ export class UserDAO {
 		}
 	}
 
+	protected static async sendVerificationCode(
+		email: string
+	): Promise<DaoResponse> {
+		try {
+			const code = generateCode(6);
+
+			const info = await sendMail({
+				from: fromDefault,
+				to: email,
+				subject: "Confirm your email",
+				text: "Your verification code: " + code,
+			});
+
+			if (!info[0]) {
+				throw new Error("Email not sent, error: " + info[1]);
+			}
+			const key = "forgot_password_code_" + email;
+			Cache.set(key, code);
+
+			return [ErrorControl.SUCCESS, "Email sent", HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error sending email";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
 	protected static async forgorPassword(email: string): Promise<DaoResponse> {
 		try {
 			// verify if email already exists
@@ -171,9 +203,10 @@ export class UserDAO {
 		}
 	}
 
-	protected static async verifyForgotPasswordCode(
+	protected static async verifyCode(
 		email: string,
-		code: string
+		code: string,
+		once = false
 	): Promise<DaoResponse> {
 		try {
 			const key = "forgot_password_code_" + email;
@@ -196,7 +229,7 @@ export class UserDAO {
 			}
 
 			// make sure code is not expired
-			Cache.makeInfinite(key);
+			if (!once) Cache.makeInfinite(key);
 
 			return [ErrorControl.SUCCESS, "Code correct", HttpStatusCode.Ok];
 		} catch (error) {
@@ -286,7 +319,7 @@ export class UserDAO {
 				];
 			}
 
-			const user = User.fromJson(docSnap.data());
+			const user = User.fromJson({ ...docSnap.data(), id_user });
 			// delete password
 			user.deletePassword();
 			return [ErrorControl.SUCCESS, user, HttpStatusCode.Ok];
@@ -301,7 +334,10 @@ export class UserDAO {
 		}
 	}
 
-	protected static async update(user: User, id_user: string): Promise<DaoResponse> {
+	protected static async update(
+		user: User,
+		id_user: string
+	): Promise<DaoResponse> {
 		try {
 			const docRef = doc(db, User.COLLECTION, id_user);
 			const docSnap = await getDoc(docRef);
@@ -318,6 +354,59 @@ export class UserDAO {
 			return [ErrorControl.SUCCESS, "User updated", HttpStatusCode.Ok];
 		} catch (error) {
 			const msg = "Error updating user";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
+
+	protected static async valorateuser(
+		user_id: string,
+		valorated_user_id: string,
+		rate: number
+	): Promise<DaoResponse> {
+		try {
+			const docRef = doc(db, User.COLLECTION, valorated_user_id);
+			const docSnap = await getDoc(docRef);
+			if (!docSnap.exists()) {
+				return [
+					ErrorControl.PERSONALIZED,
+					"User not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+
+			const valorations = docSnap.data()?.valorations || [];
+			const hasRated = valorations.some(
+				(v: any) => v.id_user === user_id
+			);
+
+			if (hasRated) {
+				return [
+					ErrorControl.PERSONALIZED,
+					"User has already rated this user",
+					HttpStatusCode.Conflict,
+				];
+			}
+
+			await updateDoc(docRef, {
+				valorations: arrayUnion({
+					id_user: user_id,
+					rate: rate,
+					created_at: getDateTime(),
+				}),
+			});
+
+			return [
+				ErrorControl.SUCCESS,
+				"User valorated",
+				HttpStatusCode.Created,
+			];
+		} catch (error) {
+			const msg = "Error updating document";
 			logError(msg + ": " + error);
 			return [
 				ErrorControl.ERROR,

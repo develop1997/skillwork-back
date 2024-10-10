@@ -1,5 +1,5 @@
 import { createDebugger } from "../utils/debugConfig";
-import { Job } from "../entities/Job";
+import { AvailableStatus, Job } from "../entities/Job";
 import {
 	addDoc,
 	and,
@@ -50,53 +50,17 @@ export class JobDAO {
 		}
 	}
 
-	protected static async getAll(
-		page: number,
-		limitP: number
-	): Promise<DaoResponse> {
+	protected static async getAll(): Promise<DaoResponse> {
 		try {
 			const jobsRef = collection(db, Job.COLLECTION);
-
-			const jobsQuery = query(
-				jobsRef,
-				orderBy("created_at"),
-				limit(limitP)
-			);
-
-			const querySnapshot = await getDocs(jobsQuery);
-
-			if (querySnapshot.empty) {
+			const docs = await getDocs(jobsRef);
+			if (docs.empty) {
 				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
 			}
 
-			const jobs = querySnapshot.docs.map((doc) =>
-				Job.fromJson({ ...doc.data(), id_job: doc.id })
+			const nextJobs = docs.docs.map((doc) =>
+				Job.toJson(Job.fromJson({ ...doc.data(), id_job: doc.id }))
 			);
-
-			if (page === 1) {
-				return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
-			}
-
-			const lastVisible: DocumentSnapshot =
-				querySnapshot.docs[querySnapshot.docs.length - 1];
-
-			const nextQuery = query(
-				jobsRef,
-				orderBy("created_at"),
-				startAfter(lastVisible),
-				limit(limitP)
-			);
-
-			const nextQuerySnapshot = await getDocs(nextQuery);
-
-			if (nextQuerySnapshot.empty) {
-				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
-			}
-
-			const nextJobs = nextQuerySnapshot.docs.map((doc) =>
-				Job.fromJson({ ...doc.data(), id_job: doc.id })
-			);
-
 			return [ErrorControl.SUCCESS, nextJobs, HttpStatusCode.Ok];
 		} catch (error) {
 			const msg = "Error getting documents";
@@ -123,10 +87,12 @@ export class JobDAO {
 			}
 			return [
 				ErrorControl.SUCCESS,
-				Job.fromJson({
-					...querySnapshot.docs[0].data(),
-					id_job: querySnapshot.docs[0].id,
-				}),
+				Job.toJson(
+					Job.fromJson({
+						...querySnapshot.docs[0].data(),
+						id_job: querySnapshot.docs[0].id,
+					})
+				),
 				HttpStatusCode.Ok,
 			];
 		} catch (error) {
@@ -211,7 +177,11 @@ export class JobDAO {
 			const jobs = querySnapshot.docs.map((doc) =>
 				Job.fromJson({ ...doc.data(), id_job: doc.id })
 			);
-			return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+			return [
+				ErrorControl.SUCCESS,
+				jobs.map((job) => Job.toJson(job)),
+				HttpStatusCode.Ok,
+			];
 		} catch (error) {
 			const msg = "Error deleting document";
 			logError(msg + ": " + error);
@@ -230,7 +200,12 @@ export class JobDAO {
 		const userdocRef = doc(db, User.COLLECTION, id_user);
 		const jobdocRef = doc(db, Job.COLLECTION, id_job);
 		try {
-			await updateDoc(jobdocRef, { applicants: arrayUnion(userdocRef) });
+			await updateDoc(jobdocRef, {
+				applicants: arrayUnion({
+					id_user: userdocRef,
+					status: AvailableStatus.PENDIENTE,
+				}),
+			});
 			return [
 				ErrorControl.SUCCESS,
 				"Job applied",
@@ -254,18 +229,83 @@ export class JobDAO {
 			const userdocRef = doc(db, User.COLLECTION, id_user);
 			const q = query(
 				collection(db, Job.COLLECTION),
-				where("applicants", "array-contains", userdocRef)
+				where("applicants", "!=", null)
 			);
 			const querySnapshot = await getDocs(q);
 			if (querySnapshot.empty) {
 				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
 			}
-			const jobs = querySnapshot.docs.map((doc) =>
-				Job.fromJson({ ...doc.data(), id_job: doc.id })
-			);
-			return [ErrorControl.SUCCESS, jobs, HttpStatusCode.Ok];
+
+			const jobs = querySnapshot.docs
+				.filter((doc) => {
+					const applicants = doc.data().applicants || [];
+					return applicants.some(
+						(applicant: { id_user: DocumentReference }) =>
+							applicant.id_user.id === userdocRef.id
+					);
+				})
+				.map((doc) => Job.fromJson({ ...doc.data(), id_job: doc.id }));
+			return [
+				ErrorControl.SUCCESS,
+				jobs.map((job) => Job.toJson(job)),
+				HttpStatusCode.Ok,
+			];
 		} catch (error) {
-			const msg = "Error deleting document";
+			const msg = "Error fetching applied jobs";
+			logError(msg + ": " + error);
+			return [
+				ErrorControl.ERROR,
+				msg,
+				HttpStatusCode.InternalServerError,
+			];
+		}
+	}
+	protected static async getApplicants(id_job: string): Promise<DaoResponse> {
+		try {
+			const jobdocRef = doc(db, Job.COLLECTION, id_job);
+			const querySnapshot = await getDoc(jobdocRef);
+
+			if (!querySnapshot.exists()) {
+				return [
+					ErrorControl.ERROR,
+					"Job not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+
+			const applicants = querySnapshot.data().applicants || [];
+			if (applicants.length === 0) {
+				return [ErrorControl.SUCCESS, [], HttpStatusCode.Ok];
+			}
+
+			const usersPromises = applicants.map(
+				async (applicant: {
+					id_user: DocumentReference;
+					status: AvailableStatus;
+					data: any;
+				}) => {
+					const docSnap = await getDoc(applicant.id_user);
+					if (docSnap.exists()) {
+						const user = User.fromJson({
+							...docSnap.data(),
+							id_user: docSnap.id,
+						});
+						user.deletePassword();
+						return {
+							...user,
+							status: applicant.status,
+							data: applicant.data ?? undefined,
+						};
+					}
+					return null;
+				}
+			);
+
+			const users = (await Promise.all(usersPromises)).filter(Boolean);
+
+			return [ErrorControl.SUCCESS, users, HttpStatusCode.Ok];
+		} catch (error) {
+			const msg = "Error fetching applicants";
 			logError(msg + ": " + error);
 			return [
 				ErrorControl.ERROR,
@@ -275,11 +315,17 @@ export class JobDAO {
 		}
 	}
 
-	protected static async getApplicants(id_job: string): Promise<DaoResponse> {
+	protected static async changeApplicationStatus(
+		id_job: string,
+		id_user: string,
+		status: AvailableStatus,
+		data: any
+	): Promise<DaoResponse> {
+		const userdocRef = doc(db, User.COLLECTION, id_user);
+		const jobdocRef = doc(db, Job.COLLECTION, id_job);
 		try {
-			const jobdocRef = doc(db, Job.COLLECTION, id_job);
 			const querySnapshot = await getDoc(jobdocRef);
-	
+
 			if (!querySnapshot.exists()) {
 				return [
 					ErrorControl.ERROR,
@@ -287,20 +333,46 @@ export class JobDAO {
 					HttpStatusCode.NotFound,
 				];
 			}
-	
-			const applicants = querySnapshot.data().applicants;
-			const usersPromises = applicants.map(async (doc: DocumentReference) => {
-				const docSnap = await getDoc(doc);
-				const user = User.fromJson(docSnap.data());
-				// delete password
-				user.deletePassword();
-				return user;
+
+			const applicants = querySnapshot.data().applicants || [];
+
+			const applicant = applicants.find(
+				(applicant: {
+					id_user: DocumentReference;
+					status: AvailableStatus;
+				}) => applicant.id_user.id === userdocRef.id
+			);
+
+			if (!applicant) {
+				return [
+					ErrorControl.ERROR,
+					"Applicant not found",
+					HttpStatusCode.NotFound,
+				];
+			}
+
+			const updadtedApplicant = [
+				...applicants.filter(
+					(applicant: { id_user: DocumentReference }) =>
+						applicant.id_user.id !== userdocRef.id
+				),
+				{
+					...applicant,
+					status,
+					data,
+				},
+			];
+
+			await updateDoc(jobdocRef, {
+				applicants: updadtedApplicant,
 			});
-	
-			const users = await Promise.all(usersPromises);
-			return [ErrorControl.SUCCESS, users, HttpStatusCode.Ok];
+			return [
+				ErrorControl.SUCCESS,
+				"Application status updated successfully",
+				HttpStatusCode.Ok,
+			];
 		} catch (error) {
-			const msg = "Error deleting document";
+			const msg = "Error fetching applicants";
 			logError(msg + ": " + error);
 			return [
 				ErrorControl.ERROR,
@@ -309,5 +381,4 @@ export class JobDAO {
 			];
 		}
 	}
-	
 }

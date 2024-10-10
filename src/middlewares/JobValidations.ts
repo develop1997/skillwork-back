@@ -17,7 +17,8 @@ export const CreateJobBodyValidations=(
         description: Joi.string().required(),
         location: Joi.string().required(),
         required_skills: Joi.array().required(),    
-        salary: Joi.number().required(),
+		categories: Joi.array().optional(),
+		services: Joi.array().optional(),
         expired_at: Joi.date().required(),
     });
 

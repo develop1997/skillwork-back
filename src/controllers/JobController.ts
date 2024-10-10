@@ -3,6 +3,7 @@ import { JobDAO } from "../dao/JobDAO";
 import { Job } from "../entities/Job";
 import { CreateJobBodyValidations } from "../middlewares/JobValidations";
 import { validateClient, verifyToken } from "../middlewares/jwt";
+import { CheckCache } from "../middlewares/Cache";
 
 export class JobController extends JobDAO {
 	private router: Router;
@@ -52,13 +53,9 @@ export class JobController extends JobDAO {
 		this.router.get(
 			"/",
 			verifyToken,
+			CheckCache,
 			async (req: Request, res: Response) => {
-				const { page = "1", limit = "10" } = req.query;
-
-				const data = await JobDAO.getAll(
-					parseInt(page as string),
-					parseInt(limit as string)
-				);
+				const data = await JobDAO.getAll();
 				return res.status(data[2]).send(data[1]);
 			}
 		);
@@ -86,6 +83,22 @@ export class JobController extends JobDAO {
 			}
 		);
 
+		//update application status
+		this.router.put(
+			"/application/:id_job",
+			verifyToken,
+			async (req: Request, res: Response) => {
+				const id_job = req.params.id_job;
+				const { user_id, status, data = "" } = req.body;
+				const result = await JobDAO.changeApplicationStatus(
+					id_job,
+					user_id,
+					status,
+					data
+				);
+				return res.status(result[2]).send(result[1]);
+			}
+		);
 		// get by id
 		this.router.get(
 			"/:id_job",

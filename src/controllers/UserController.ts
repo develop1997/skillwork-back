@@ -11,6 +11,7 @@ import { CheckCache } from "../middlewares/Cache";
 import { uploadImage } from "../service/fireStorage";
 import multer from "multer";
 import { JobDAO } from "../dao/JobDAO";
+import { HttpStatusCode } from "axios";
 
 const upload = multer();
 export class UserController extends UserDAO {
@@ -51,10 +52,21 @@ export class UserController extends UserDAO {
 
 		// sign in
 		this.router.post("/signin", async (req: Request, res: Response) => {
-				const { email, password } = req.body;
+			const { email, password } = req.body;
 			const data = await UserDAO.signIn(email, password);
 			return res.status(data[2]).send(data[1]);
 		});
+
+		this.router.post(
+			"/valorateuser",
+			verifyToken,
+			async (req: Request, res: Response) => {
+				const { user_id, rate } = req.body;
+				const { id } = req.body.user;
+				const data = await UserDAO.valorateuser(id, user_id, rate);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
 
 		// forgot password (send)
 		this.router.post(
@@ -66,15 +78,39 @@ export class UserController extends UserDAO {
 			}
 		);
 
+		this.router.post("/send_code", async (req: Request, res: Response) => {
+			const { email } = req.body;
+			if (!email)
+				return res
+					.status(HttpStatusCode.BadRequest)
+					.send("email not found");
+			const data = await UserDAO.sendVerificationCode(email);
+			return res.status(data[2]).send(data[1]);
+		});
+
+		this.router.post(
+			"/verify_code",
+			async (req: Request, res: Response) => {
+				const { email, code } = req.body;
+				if (!code || !email)
+					return res
+						.status(HttpStatusCode.BadRequest)
+						.send("Code or email not found");
+				const data = await UserDAO.verifyCode(email, code, true);
+				return res.status(data[2]).send(data[1]);
+			}
+		);
+
 		// forgot password (verify code)
 		this.router.post(
 			"/forgot_password/verify_code",
 			async (req: Request, res: Response) => {
 				const { email, code } = req.body;
-				const data = await UserDAO.verifyForgotPasswordCode(
-					email,
-					code
-				);
+				if (!code || !email)
+					return res
+						.status(HttpStatusCode.BadRequest)
+						.send("Code or email not found");
+				const data = await UserDAO.verifyCode(email, code);
 				return res.status(data[2]).send(data[1]);
 			}
 		);
@@ -84,6 +120,10 @@ export class UserController extends UserDAO {
 			"/forgot_password/reset",
 			async (req: Request, res: Response) => {
 				const { email, code, password } = req.body;
+				if (!code || !email || !password)
+					return res
+						.status(HttpStatusCode.BadRequest)
+						.send("Code, email or password not found");
 				const data = await UserDAO.resetPassword(email, code, password);
 				return res.status(data[2]).send(data[1]);
 			}
