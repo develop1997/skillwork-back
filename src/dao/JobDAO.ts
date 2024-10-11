@@ -359,7 +359,7 @@ export class JobDAO {
 				{
 					...applicant,
 					status,
-					data,
+					data: data && data != "" ? data : applicant.data,
 				},
 			];
 

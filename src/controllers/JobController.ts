@@ -53,7 +53,6 @@ export class JobController extends JobDAO {
 		this.router.get(
 			"/",
 			verifyToken,
-			CheckCache,
 			async (req: Request, res: Response) => {
 				const data = await JobDAO.getAll();
 				return res.status(data[2]).send(data[1]);
